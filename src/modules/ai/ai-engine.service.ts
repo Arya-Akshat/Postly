@@ -106,3 +106,5 @@ export const AiEngineService = {
     return p;
   }
 };
+
+// Fallback logic limits chars based on target platform guidelines
