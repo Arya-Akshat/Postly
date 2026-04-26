@@ -35,3 +35,5 @@ export const decrypt = (stored: string): string => {
   
   return plaintext;
 };
+
+// IV is a random 16-byte Buffer for AES-GCM
