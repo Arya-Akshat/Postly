@@ -9,3 +9,5 @@ export const telegramWebhook = bot
       secretToken: env.TELEGRAM_WEBHOOK_SECRET,
     })
   : (req: any, res: any) => res.status(500).send('Bot not configured');
+
+// Configure Telegram Webhook callback explicitly
