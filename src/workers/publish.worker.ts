@@ -69,3 +69,5 @@ const setupWorkers = () => {
 
 setupWorkers();
 logger.info('Workers started');
+
+// Process BullMQ publishing jobs with backoff strategy
