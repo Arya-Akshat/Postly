@@ -100,6 +100,7 @@ npm test
 - ✅ `AI_USAGE.md` documenting AI-assisted development
 - ✅ Docker Compose for easy deployment
 - ✅ Integrated Testing Suite
+- ✅ Postman Collection (`postly_api_collection.json`)
 
 ---
 *Created by Arya Akshat for the Credes TechLabs Internship Challenge.*
