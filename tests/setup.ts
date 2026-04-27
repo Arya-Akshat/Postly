@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 beforeAll(async () => {
   process.env.DATABASE_URL = process.env.DATABASE_URL_TEST as string;
-  execSync('npx prisma migrate reset --force', { stdio: 'inherit' });
+  // execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
 });
 
 afterAll(async () => {

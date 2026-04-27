@@ -192,4 +192,39 @@ if (bot) {
     });
     ctx.reply(msg);
   });
+
+  bot.command('accounts', async (ctx) => {
+    const firstUser = await prisma.user.findFirst();
+    if (!firstUser) return ctx.reply('No user linked.');
+    const socials = await prisma.socialAccount.findMany({
+      where: { user_id: firstUser.id }
+    });
+
+    if (!socials.length) return ctx.reply('No social accounts connected. Connect them via the dashboard.');
+    let msg = 'Your connected accounts:\n\n';
+    socials.forEach(s => {
+      msg += `✅ ${s.platform}: @${s.handle || 'connected'}\n`;
+    });
+    ctx.reply(msg);
+  });
+
+  bot.command('help', async (ctx) => {
+    const helpMsg = `
+🚀 *Postly AI Bot Help*
+
+Available commands:
+/start - Start creating a new post
+/status - Check status of recent posts
+/accounts - View connected social accounts
+/help - Show this help message
+
+*How to create a post:*
+1. Type /start
+2. Follow the buttons to select type, platforms, tone, and model.
+3. Type your idea (max 500 characters).
+4. Choose the detail level.
+5. Preview and confirm!
+    `;
+    ctx.reply(helpMsg, { parse_mode: 'Markdown' });
+  });
 }

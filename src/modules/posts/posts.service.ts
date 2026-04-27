@@ -68,5 +68,44 @@ export const PostsService = {
       where: { id: postId, user_id: userId },
       data: { deleted_at: null }
     });
+  },
+
+  async getById(userId: string, postId: string) {
+    const post = await prisma.post.findFirst({
+      where: { id: postId, user_id: userId, deleted_at: null },
+      include: { platform_posts: true }
+    });
+    if (!post) throw { status: 404, message: 'Post not found' };
+    return post;
+  },
+
+  async schedule(userId: string, postId: string, scheduledAt: Date) {
+    const post = await prisma.post.findFirst({
+      where: { id: postId, user_id: userId, deleted_at: null }
+    });
+    if (!post) throw { status: 404, message: 'Post not found' };
+
+    return await prisma.post.update({
+      where: { id: postId },
+      data: { publish_at: scheduledAt, status: 'QUEUED' }
+    });
+  },
+
+  async retry(userId: string, postId: string) {
+    const post = await prisma.post.findFirst({
+      where: { id: postId, user_id: userId, deleted_at: null },
+      include: { platform_posts: { where: { status: 'FAILED' } } }
+    });
+
+    if (!post) throw { status: 404, message: 'Post not found' };
+    
+    // Logic to re-add failed jobs to queue would go here
+    // For now, we just reset the status
+    await prisma.platformPost.updateMany({
+      where: { post_id: postId, status: 'FAILED' },
+      data: { status: 'QUEUED' }
+    });
+    
+    return this.publish(userId, postId);
   }
 };

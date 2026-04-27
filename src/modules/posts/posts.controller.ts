@@ -39,5 +39,33 @@ export const PostsController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  async getPostById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const post = await PostsService.getById(req.user!.id, req.params.id);
+      res.status(200).json(successResponse(post));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async schedule(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { postId, scheduledAt } = req.body;
+      await PostsService.schedule(req.user!.id, postId, new Date(scheduledAt));
+      res.status(200).json(successResponse({ message: 'Post scheduled' }));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async retry(req: Request, res: Response, next: NextFunction) {
+    try {
+      await PostsService.retry(req.user!.id, req.params.id);
+      res.status(200).json(successResponse({ message: 'Retry triggered' }));
+    } catch (error) {
+      next(error);
+    }
   }
 };

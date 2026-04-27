@@ -50,13 +50,13 @@ const processJob = async (job: Job) => {
 };
 
 const setupWorkers = () => {
-  const platforms = ['twitter', 'linkedin', 'instagram', 'threads'];
+  const platforms = ['twitter', 'linkedin', 'instagram', 'threads', 'test'];
   platforms.forEach(platform => {
-    new Worker(`postly:publish:${platform}`, processJob, {
+    new Worker(`postly_publish_${platform}`, processJob, {
       connection: createRedisConnection()
     }).on('failed', async (job: Job | undefined, err: Error) => {
       if (job) {
-        if (job.attemptsMade >= 3) {
+        if (job.attemptsMade >= (job.opts.attempts || 3)) {
           await prisma.platformPost.update({
             where: { id: job.data.platformPostId },
             data: { status: 'FAILED', attempts: job.attemptsMade, error_message: err.message }

@@ -8,18 +8,29 @@ export const AiEngineService = {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     const keys = await prisma.aiKey.findUnique({ where: { user_id: userId } });
 
-    const groqKey = env.GROQ_API_KEY || (keys?.openai_key_enc ? decrypt(keys.openai_key_enc) : null);
-    
-    console.log(`[AI] Generating for platforms: ${platforms.join(', ')} using model: ${model}, level: ${level}`);
+    // Key selection logic
+    let apiKey: string | null = null;
+    let provider: 'groq' | 'openai' | 'anthropic' = 'groq';
 
-    if (!groqKey) {
-      console.error('[AI] Groq API key not configured');
-      throw new Error('Groq API key not configured');
+    if (model === 'openai') {
+      apiKey = (keys?.openai_key_enc ? decrypt(keys.openai_key_enc) : env.OPENAI_API_KEY) || null;
+      provider = 'openai';
+    } else if (model === 'claude') {
+      apiKey = (keys?.anthropic_key_enc ? decrypt(keys.anthropic_key_enc) : env.ANTHROPIC_API_KEY) || null;
+      provider = 'anthropic';
+    } else {
+      apiKey = env.GROQ_API_KEY || null;
+      provider = 'groq';
     }
+
+    if (!apiKey) {
+      throw new Error(`API key for ${provider} not configured`);
+    }
+
+    console.log(`[AI] Generating for platforms: ${platforms.join(', ')} using provider: ${provider}, level: ${level}`);
 
     const results = [];
     
-    // Create Post record
     const post = await prisma.post.create({
       data: {
         user_id: userId,
@@ -34,7 +45,7 @@ export const AiEngineService = {
     for (const platform of platforms) {
       try {
         console.log(`[AI] Generating for platform: ${platform}...`);
-        const content = await this.generateWithRetry(model, platform, idea, tone, postType, user?.default_language || 'English', groqKey, level);
+        const content = await this.generateWithRetry(provider, platform, idea, tone, postType, user?.default_language || 'English', apiKey, level);
         console.log(`[AI] Successfully generated for ${platform} (${content.length} chars)`);
         
         await prisma.platformPost.create({
@@ -42,20 +53,17 @@ export const AiEngineService = {
             post_id: post.id,
             platform: platform as any,
             content,
-            status: 'QUEUED', // It will be queued later when published
+            status: 'QUEUED',
           }
         });
-
-        const char_count = content.length;
-        const hashtags = content.match(/#[\w]+/g) || [];
 
         results.push({ 
           platform, 
           content, 
-          char_count, 
-          hashtags, 
+          char_count: content.length, 
+          hashtags: content.match(/#[\w]+/g) || [], 
           model_used: model, 
-          tokens_used: 0, // Mocked for assignment purposes
+          tokens_used: 0, 
           error: null 
         });
       } catch (error: any) {
@@ -67,31 +75,40 @@ export const AiEngineService = {
     return results;
   },
 
-  async generateWithRetry(model: string, platform: string, idea: string, tone: string, postType: string, language: string, groqKey: string, level: string): Promise<string> {
+  async generateWithRetry(provider: string, platform: string, idea: string, tone: string, postType: string, language: string, apiKey: string, level: string): Promise<string> {
     let attempts = 0;
+    const prompt = this.getSystemPrompt(platform, tone, language, level) + `\n\nIdea: ${idea}\nPost Type: ${postType}`;
+
     while (attempts < 3) {
       try {
-        const prompt = this.getSystemPrompt(platform, tone, language, level) + `\n\nIdea: ${idea}\nPost Type: ${postType}`;
-        
-        // Routing everything to Groq
-        const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: prompt },
-            { role: 'user', content: 'Generate the content.' }
-          ]
-        }, {
-          headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-          timeout: 15000
-        });
-        return res.data.choices[0].message.content.trim();
-      } catch (error) {
+        let res;
+        if (provider === 'openai') {
+          res = await axios.post('https://api.openai.com/v1/chat/completions', {
+            model: 'gpt-4o',
+            messages: [{ role: 'system', content: prompt }, { role: 'user', content: 'Generate content' }]
+          }, { headers: { 'Authorization': `Bearer ${apiKey}` }, timeout: 15000 });
+        } else if (provider === 'anthropic') {
+          res = await axios.post('https://api.anthropic.com/v1/messages', {
+            model: 'claude-3-5-sonnet-20240620',
+            max_tokens: 1024,
+            messages: [{ role: 'user', content: prompt + '\n\nGenerate content.' }]
+          }, { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, timeout: 15000 });
+        } else {
+          res = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'system', content: prompt }, { role: 'user', content: 'Generate content' }]
+          }, { headers: { 'Authorization': `Bearer ${apiKey}` }, timeout: 15000 });
+        }
+
+        const content = provider === 'anthropic' ? res.data.content[0].text : res.data.choices[0].message.content;
+        return content.trim();
+      } catch (error: any) {
         attempts++;
         if (attempts >= 3) throw error;
         await new Promise(r => setTimeout(r, 1000));
       }
     }
-    throw new Error('Failed to generate content');
+    throw new Error('Failed to generate content after retries');
   },
 
   getSystemPrompt(platform: string, tone: string, language: string, level: string) {

@@ -13,6 +13,7 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import './modules/telegram/handlers';
 import { authLimiter, userLimiter } from './middlewares/rateLimiter';
+import { authenticate } from './middlewares/authenticate';
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api/webhooks/telegram', telegramRoutes);
 app.use('/api/posts', userLimiter, postRoutes);
 app.use('/api/dashboard', userLimiter, dashboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/content', authenticate, aiRoutes); // Reusing aiRoutes for simplicity or I can use contentRoutes
 
 // Global Error Handler
 app.use(errorHandler);
