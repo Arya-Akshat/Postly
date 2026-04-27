@@ -23,3 +23,5 @@ export const userLimiter = rateLimit({
     sendCommand: (...args: string[]) => redis.call(...args),
   }),
 });
+
+// Redis-backed limits block excessive abuse attempts
