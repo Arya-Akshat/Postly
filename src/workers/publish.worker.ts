@@ -71,3 +71,5 @@ setupWorkers();
 logger.info('Workers started');
 
 // Process BullMQ publishing jobs with backoff strategy
+
+// Syncing platform post processing status back to database
