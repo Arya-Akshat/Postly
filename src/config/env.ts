@@ -19,6 +19,7 @@ const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
   
+  GROQ_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   
