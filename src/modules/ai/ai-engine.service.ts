@@ -4,13 +4,18 @@ import { decrypt } from '../../utils/encryption';
 import axios from 'axios';
 
 export const AiEngineService = {
-  async generateForPlatforms(userId: string, platforms: string[], idea: string, tone: string, postType: string, model: string) {
+  async generateForPlatforms(userId: string, platforms: string[], idea: string, tone: string, postType: string, model: string, level: string = 'MEDIUM') {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     const keys = await prisma.aiKey.findUnique({ where: { user_id: userId } });
 
     const groqKey = env.GROQ_API_KEY || (keys?.openai_key_enc ? decrypt(keys.openai_key_enc) : null);
+    
+    console.log(`[AI] Generating for platforms: ${platforms.join(', ')} using model: ${model}, level: ${level}`);
 
-    if (!groqKey) throw new Error('Groq API key not configured');
+    if (!groqKey) {
+      console.error('[AI] Groq API key not configured');
+      throw new Error('Groq API key not configured');
+    }
 
     const results = [];
     
@@ -28,7 +33,9 @@ export const AiEngineService = {
 
     for (const platform of platforms) {
       try {
-        const content = await this.generateWithRetry(model, platform, idea, tone, postType, user?.default_language || 'English', groqKey);
+        console.log(`[AI] Generating for platform: ${platform}...`);
+        const content = await this.generateWithRetry(model, platform, idea, tone, postType, user?.default_language || 'English', groqKey, level);
+        console.log(`[AI] Successfully generated for ${platform} (${content.length} chars)`);
         
         await prisma.platformPost.create({
           data: {
@@ -52,6 +59,7 @@ export const AiEngineService = {
           error: null 
         });
       } catch (error: any) {
+        console.error(`[AI] Error generating for ${platform}:`, error.message);
         results.push({ platform, content: null, error: error.message });
       }
     }
@@ -59,22 +67,22 @@ export const AiEngineService = {
     return results;
   },
 
-  async generateWithRetry(model: string, platform: string, idea: string, tone: string, postType: string, language: string, groqKey: string): Promise<string> {
+  async generateWithRetry(model: string, platform: string, idea: string, tone: string, postType: string, language: string, groqKey: string, level: string): Promise<string> {
     let attempts = 0;
     while (attempts < 3) {
       try {
-        const prompt = this.getSystemPrompt(platform, tone, language) + `\n\nIdea: ${idea}\nPost Type: ${postType}`;
+        const prompt = this.getSystemPrompt(platform, tone, language, level) + `\n\nIdea: ${idea}\nPost Type: ${postType}`;
         
         // Routing everything to Groq
         const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-          model: 'llama3-70b-8192',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: prompt },
             { role: 'user', content: 'Generate the content.' }
           ]
         }, {
           headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-          timeout: 30000
+          timeout: 15000
         });
         return res.data.choices[0].message.content.trim();
       } catch (error) {
@@ -86,14 +94,35 @@ export const AiEngineService = {
     throw new Error('Failed to generate content');
   },
 
-  getSystemPrompt(platform: string, tone: string, language: string) {
+  getSystemPrompt(platform: string, tone: string, language: string, level: string) {
     let p = `Write a post in ${language} with a ${tone} tone. `;
-    if (platform === 'TWITTER') p += 'Max 280 characters. Use 2-3 hashtags. Start with a punchy hook.';
-    if (platform === 'LINKEDIN') p += '800-1300 characters. Always professional. 3-5 hashtags. No emojis.';
-    if (platform === 'INSTAGRAM') p += 'Engaging caption. Exactly 10-15 hashtags on new lines. Use relevant emojis.';
-    if (platform === 'THREADS') p += 'Max 500 characters. Conversational and casual tone.';
+    
+    // Length & Detail Instructions
+    if (level === 'MINIMAL') {
+      p += "Instruction: Keep it extremely short (1-2 sentences). Use ONLY the provided idea with zero fluff. ";
+    } else if (level === 'MEDIUM') {
+      p += "Instruction: Provide a balanced post (3-5 sentences). Add some context and a clear message based on the idea. ";
+    } else if (level === 'HIGH') {
+      p += "Instruction: Provide a long, comprehensive post (2-3 detailed paragraphs). Expand the idea with storytelling, depth, and creative details. ";
+    }
+
+    // Platform Specifics
+    if (platform === 'TWITTER') {
+      p += 'Constraint: Max 280 characters total. Use 2-3 hashtags. Start with a punchy hook.';
+    } else if (platform === 'LINKEDIN') {
+      p += 'Constraint: Target length 800-1300 characters. Use professional formatting, line breaks, and 3-5 hashtags. No emojis.';
+    } else if (platform === 'INSTAGRAM') {
+      p += 'Constraint: Write an engaging caption. Exactly 10-15 hashtags on new lines. Use relevant emojis.';
+    } else if (platform === 'THREADS') {
+      p += 'Constraint: Max 500 characters. Maintain a conversational and casual tone.';
+    } else if (platform === 'TEST') {
+      // Allow TEST to be flexible based on level
+      const maxChars = level === 'HIGH' ? 1000 : (level === 'MEDIUM' ? 500 : 200);
+      p += `Constraint: Max ${maxChars} characters. This is a test post, make it fun and engaging. Use 2 hashtags.`;
+    }
+    
+    p += " IMPORTANT: Do not include any prefix like 'Here is your post' or 'Sure, here it is'. Just output the content of the post.";
+    
     return p;
   }
 };
-
-// Fallback logic limits chars based on target platform guidelines

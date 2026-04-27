@@ -10,6 +10,7 @@ import aiRoutes from './modules/ai/ai.routes';
 import telegramRoutes from './modules/telegram/telegram.routes';
 import postRoutes from './modules/posts/posts.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
+import adminRoutes from './modules/admin/admin.routes';
 import './modules/telegram/handlers';
 import { authLimiter, userLimiter } from './middlewares/rateLimiter';
 
@@ -27,6 +28,7 @@ app.use('/api/ai', userLimiter, aiRoutes);
 app.use('/api/webhooks/telegram', telegramRoutes);
 app.use('/api/posts', userLimiter, postRoutes);
 app.use('/api/dashboard', userLimiter, dashboardRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

@@ -37,6 +37,7 @@ if (bot) {
       const kb = new InlineKeyboard()
         .text('Twitter ❌', 'plat:TWITTER').text('LinkedIn ❌', 'plat:LINKEDIN').row()
         .text('Instagram ❌', 'plat:INSTAGRAM').text('Threads ❌', 'plat:THREADS').row()
+        .text('🧪 Test ❌', 'plat:TEST').row()
         .text('Next ➡️', 'plat:NEXT');
       
       await ctx.editMessageText('Select platforms to publish to:', { reply_markup: kb });
@@ -63,6 +64,7 @@ if (bot) {
         const kb = new InlineKeyboard()
           .text(`Twitter ${isSel('TWITTER')}`, 'plat:TWITTER').text(`LinkedIn ${isSel('LINKEDIN')}`, 'plat:LINKEDIN').row()
           .text(`Instagram ${isSel('INSTAGRAM')}`, 'plat:INSTAGRAM').text(`Threads ${isSel('THREADS')}`, 'plat:THREADS').row()
+          .text(`🧪 Test ${isSel('TEST')}`, 'plat:TEST').row()
           .text('Next ➡️', 'plat:NEXT');
         await ctx.editMessageReplyMarkup({ reply_markup: kb });
       }
@@ -71,13 +73,21 @@ if (bot) {
       session.step = 'MODEL';
       await TelegramSession.set(chatId, session);
       const kb = new InlineKeyboard()
-        .text('OpenAI', 'model:openai').text('Claude', 'model:claude');
-      await ctx.editMessageText('Select the AI model to use:', { reply_markup: kb });
+        .text('Groq (Llama 3)', 'model:groq');
+      await ctx.editMessageText('AI Engine:', { reply_markup: kb });
     } else if (data.startsWith('model:')) {
       session.model = data.split(':')[1];
       session.step = 'IDEA';
       await TelegramSession.set(chatId, session);
       await ctx.editMessageText('Great! Now type in your idea (max 500 chars):');
+    } else if (data.startsWith('level:')) {
+      session.level = data.split(':')[1];
+      session.step = 'GENERATING_START';
+      await TelegramSession.set(chatId, session);
+      await ctx.editMessageText('Perfect! Starting generation...');
+      
+      // Trigger the actual generation logic
+      await handleGeneration(ctx, chatId, session);
     }
 
     await ctx.answerCallbackQuery();
@@ -101,23 +111,51 @@ if (bot) {
     }
 
     session.idea = idea;
-    session.step = 'GENERATING';
+    session.step = 'LEVEL';
     await TelegramSession.set(chatId, session);
 
+    const kb = new InlineKeyboard()
+      .text('Minimal (Short)', 'level:MINIMAL')
+      .text('Medium (Balanced)', 'level:MEDIUM').row()
+      .text('High (Detailed)', 'level:HIGH');
+
+    await ctx.reply('How detailed should the AI be?', { reply_markup: kb });
+  });
+
+  const handleGeneration = async (ctx: any, chatId: number, session: any) => {
     const msg = await ctx.reply('Generating content...');
 
     try {
       const firstUser = await prisma.user.findFirst();
-      if (!firstUser) throw new Error('No user found in DB to link with.');
+      const user = firstUser || await prisma.user.create({
+        data: {
+          email: `telegram_${chatId}@postly.local`,
+          password_hash: 'telegram-user',
+          name: ctx.from?.first_name || 'Telegram User',
+        }
+      });
 
+      console.log(`[Telegram] Starting generation for user ${user.id}, platforms: ${session.platforms}`);
       const results = await AiEngineService.generateForPlatforms(
-        firstUser.id,
+        user.id,
         session.platforms,
         session.idea,
         session.tone,
         session.postType,
-        session.model
+        session.model,
+        session.level
       );
+      console.log(`[Telegram] Generation completed for ${results.length} platforms`);
+
+      // Auto-publish: push generated posts into BullMQ queue
+      const { PostsService } = await import('../posts/posts.service');
+      const latestPost = await prisma.post.findFirst({
+        where: { user_id: user.id },
+        orderBy: { created_at: 'desc' }
+      });
+      if (latestPost) {
+        await PostsService.publish(user.id, latestPost.id);
+      }
 
       let responseText = 'Here is your generated content:\n\n';
       for (const res of results) {
@@ -127,6 +165,7 @@ if (bot) {
           responseText += `✅ ${res.platform}:\n${res.content}\n\n`;
         }
       }
+      responseText += '📤 Posts have been queued for publishing!';
 
       await ctx.api.editMessageText(chatId, msg.message_id, responseText);
       await TelegramSession.clear(chatId);
@@ -134,7 +173,7 @@ if (bot) {
       await ctx.api.editMessageText(chatId, msg.message_id, 'Content generation failed. Please try again.');
       await TelegramSession.clear(chatId);
     }
-  });
+  };
 
   bot.command('status', async (ctx) => {
     const firstUser = await prisma.user.findFirst();

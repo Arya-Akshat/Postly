@@ -3,3 +3,15 @@ dist/
 .env
 coverage/
 .DS_Store
+
+# Logs and PIDs
+*.log
+*.pid
+
+# Virtual Environment
+venv/
+.venv/
+
+# Temporary / Scratch files
+scratch/
+.gemini/
