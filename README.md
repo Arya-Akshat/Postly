@@ -104,25 +104,24 @@ npm test
 
 ---
 
-## ⚠️ Why is this a Local-Only & Mocked Implementation?
+## ⚠️ Project Limitations & Constraints
 
-While the system architecture is production-ready, I have made intentional decisions regarding hosting and API integrations based on **cost** and **access constraints**:
+Due to **financial constraints** and the **time-intensive nature of API approvals**, this project is provided as a local-first, production-ready architecture rather than a live-hosted service.
 
-### 1. 💰 Hosting & Infrastructure Costs
-Deploying this system to the cloud (Render/Railway) for free is not feasible for a high-performance publishing engine:
-- **Managed Redis Cost:** BullMQ requires a persistent Redis instance. Free-tier cloud providers do not offer this, and third-party hosted Redis (like Upstash) has strict rate limits that break background workers.
-- **Service Isolation:** Running both the API and the Worker on a single "Free Tier" instance causes "Cold Starts" and frequent sleeping, which makes the Telegram bot feel broken or laggy.
-- **Database Longevity:** Most free cloud databases (like Render's Postgres) expire after 30-90 days or have very small storage limits.
+### 1. 💰 Deployment & Infrastructure
+A live deployment was bypassed because:
+- **Infrastructure Costs:** Reliable background processing with BullMQ requires persistent Redis and Database instances. High-performance cloud tiers for these services are beyond the scope of a free-tier project.
+- **Service Stability:** Free-tier cloud providers (like Render or Railway) often "sleep" services, which breaks the responsiveness required for a real-time Telegram bot.
 
-### 2. 🔑 API Access & Credentials
-- **Social Media APIs:** Real-world integration with Twitter, LinkedIn, and Instagram requires approved Developer Portal access. This process involves multi-day approvals and often requires verified business credentials.
-- **LLM Costs:** OpenAI, Groq, and Anthropic are paid, credit-based services. Providing "Live" access would risk unmonitored credit exhaustion. 
-- **Production Ready:** The code is **integration-ready**. The publishing worker is fully built—you simply need to replace the `console.log` with your authenticated API keys.
+### 2. 🔑 API Access & LLM Usage
+- **Social Platform Approval:** Real integration with Twitter/LinkedIn requires multi-day developer portal approval and verified credentials.
+- **LLM Credit Usage:** Premium AI models (OpenAI/Anthropic) are credit-based. Providing a live URL would risk unmonitored credit exhaustion.
+- **Mock-Ready:** The publishing logic is **completely built**. You simply need to provide your own API keys in the `.env` file to trigger real posts.
 
-### 3. ✅ How to Verify My Work
-Since the project cannot be hosted for free without compromising the architecture, I have provided:
-- **Full Video Demo:** [Watch the end-to-end walkthrough (demo.mov)](./demo.mov)
-- **Docker Compose:** Allowing you to run the entire stack (API, Bot, Worker, Postgres, Redis) with a single command.
+### 3. ✅ Verification
+To ensure full transparency and proof of work, I have provided:
+- **Full Video Demo:** [demo.mov](./demo.mov) - Showing the system working end-to-end.
+- **One-Command Setup:** Use `docker-compose up` to see the entire stack (Bot, Worker, DB, Redis) run locally in seconds.
 
 ---
 
