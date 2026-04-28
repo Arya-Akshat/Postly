@@ -103,4 +103,43 @@ npm test
 - ✅ Postman Collection (`postly_api_collection.json`)
 
 ---
-*Created by Arya Akshat for the Credes TechLabs Internship Challenge.*
+
+## ⚠️ Why is this a Local-Only & Mocked Implementation?
+
+While the system architecture is production-ready, I have made intentional decisions regarding hosting and API integrations based on **cost** and **access constraints**:
+
+### 1. 💰 Hosting & Infrastructure Costs
+Deploying this system to the cloud (Render/Railway) for free is not feasible for a high-performance publishing engine:
+- **Managed Redis Cost:** BullMQ requires a persistent Redis instance. Free-tier cloud providers do not offer this, and third-party hosted Redis (like Upstash) has strict rate limits that break background workers.
+- **Service Isolation:** Running both the API and the Worker on a single "Free Tier" instance causes "Cold Starts" and frequent sleeping, which makes the Telegram bot feel broken or laggy.
+- **Database Longevity:** Most free cloud databases (like Render's Postgres) expire after 30-90 days or have very small storage limits.
+
+### 2. 🔑 API Access & Credentials
+- **Social Media APIs:** Real-world integration with Twitter, LinkedIn, and Instagram requires approved Developer Portal access. This process involves multi-day approvals and often requires verified business credentials.
+- **LLM Costs:** OpenAI, Groq, and Anthropic are paid, credit-based services. Providing "Live" access would risk unmonitored credit exhaustion. 
+- **Production Ready:** The code is **integration-ready**. The publishing worker is fully built—you simply need to replace the `console.log` with your authenticated API keys.
+
+### 3. ✅ How to Verify My Work
+Since the project cannot be hosted for free without compromising the architecture, I have provided:
+- **Full Video Demo:** [Watch the end-to-end walkthrough (demo.mov)](./demo.mov)
+- **Docker Compose:** Allowing you to run the entire stack (API, Bot, Worker, Postgres, Redis) with a single command.
+
+---
+
+## 📸 Visual Walkthrough
+
+### Telegram Bot Interface
+<div align="center">
+  <img src="./images/screenshot1.png" width="400" />
+  <img src="./images/screenshot2.png" width="400" />
+  <img src="./images/screenshot3.png" width="400" />
+</div>
+
+![Dashboard Overview](./images/screenshot4.png)
+![Queue Status](./images/screenshot5.png)
+![Admin Actions](./images/screenshot6.png)
+
+### Real-time Monitoring Dashboard
+![Analytics](./images/screenshot7.png)
+
+---

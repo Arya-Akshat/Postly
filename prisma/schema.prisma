@@ -12,6 +12,7 @@ enum Platform {
   LINKEDIN
   INSTAGRAM
   THREADS
+  TEST
 }
 
 enum PostType {

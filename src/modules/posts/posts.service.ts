@@ -20,7 +20,7 @@ export const PostsService = {
     for (const pp of post.platform_posts) {
       const social = socialMap[pp.platform];
 
-      if (!social) continue; // Skip if no account connected
+      if (!social && pp.platform !== 'TEST') continue; // Skip if no account connected
 
       await prisma.platformPost.update({ where: { id: pp.id }, data: { status: 'QUEUED' } });
 
@@ -32,7 +32,7 @@ export const PostsService = {
           userId,
           platform: pp.platform,
           content: pp.content,
-          accessToken: social.access_token_enc
+          accessToken: social ? social.access_token_enc : '0000000000000000000000000000000000000000000000000000000000000000:000000000000000000000000:00000000000000000000000000000000'
         }, {
           attempts: 3,
           backoff: { type: 'exponential', delay: 1000 }

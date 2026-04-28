@@ -26,7 +26,7 @@ const processJob = async (job: Job) => {
   }
 
   try {
-    const token = decrypt(accessToken);
+    const token = platform === 'TEST' ? 'mock_token' : decrypt(accessToken);
     if (platform === 'TWITTER') {
       logger.info(`[Worker] Publishing to Twitter: ${content}`);
     } else if (platform === 'LINKEDIN') {
